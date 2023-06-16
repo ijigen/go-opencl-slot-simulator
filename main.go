@@ -2,25 +2,119 @@ package main
 
 import (
 	"fmt"
-
 	"strings"
 
-	"github.com/MasterOfBinary/go-opencl/opencl"
+	"go-opencl/opencl"
 )
 
 const (
 	deviceType = opencl.DeviceTypeAll
 
-	dataSize = 128
+	//dataSize = 3
 
 	programCode = `
-kernel void kern(global float* out)
+kernel void kern(global const uchar* wheels,global uchar* out)
 {
-	size_t i = get_global_id(0);
-	out[i] = i;
+	size_t i=get_global_id(0);
+	uchar wheel0=i;
+	uchar wheel1=wheel0/6;
+	uchar wheel2=wheel1/6;
+
+
+	size_t w=i*3*3;
+	
+	out[w+0] = wheels[(wheel0+0)%6];
+	out[w+1] = wheels[(wheel0+1)%6];
+	out[w+2] = wheels[(wheel0+2)%6];
+
+	out[w+3] = wheels[(wheel1+0)%6];
+	out[w+4] = wheels[(wheel1+1)%6];
+	out[w+5] = wheels[(wheel1+2)%6];
+
+	out[w+6] = wheels[(wheel2+0)%6];
+	out[w+7] = wheels[(wheel2+1)%6];
+	out[w+8] = wheels[(wheel2+2)%6];
 }
+
+//kernel void wheel(global const uchar* wheel,global const uchar screen_length,global uchar* screen)
+//{
+//	size_t spin_index = get_global_id(0);
+//	size_t offset = get_global_id(1);
+//
+//
+//}
 `
 )
+
+var test = "" +
+	"12" +
+	"12" +
+	"12" +
+	"" +
+	"111" +
+	"112" +
+	"121" +
+	"122" +
+	"211" +
+	"212" +
+	"221" +
+	"222"
+
+var wheels = []uint8{
+	1, 2, 3, 4, 5, 6,
+	1, 2, 3, 4, 5, 6,
+	1, 2, 3, 4, 5, 6,
+}
+var screenSize = [...]uint8{
+	3,
+	3,
+	3,
+}
+var X = false
+var O = true
+var lines = func() [][][]bool {
+	result := [][][]bool{
+		{
+			{O, O, O},
+			{X, X, X},
+			{X, X, X},
+		},
+
+		{
+			{X, X, X},
+			{O, O, O},
+			{X, X, X},
+		},
+
+		{
+			{X, X, X},
+			{X, X, X},
+			{O, O, O},
+		},
+
+		{
+			{O, X, X},
+			{X, O, X},
+			{X, X, O},
+		},
+
+		{
+			{X, X, O},
+			{X, O, X},
+			{O, X, X},
+		},
+	}
+	return result
+}()
+
+//	var total = func() uint64 {
+//		i := 0
+//		for _, wheel := range wheels {
+//			i += len(wheel)
+//		}
+//		return uint64(i)
+//	}()
+var screen = make([][][][][][]uint8, 6*6*6)
 
 func printHeader(name string) {
 	fmt.Println(strings.ToUpper(name))
@@ -129,18 +223,39 @@ func main() {
 	}
 	defer kernel.Release()
 
-	buffer, err := context.CreateBuffer([]opencl.MemFlags{opencl.MemWriteOnly}, dataSize*4)
+	//xx := make([]uint8, dataSize)
+	//for i := range xx {
+	//	xx[i] = uint8(rand.Uint32() % 256)
+	//}
+
+	wheelsBuffer, err := context.CreateBuffer2([]opencl.MemFlags{opencl.MemReadOnly, opencl.MemCopyHostPtr}, 6*3, wheels)
+	if err != nil {
+		panic(err)
+	}
+	defer wheelsBuffer.Release()
+
+	buffer, err := context.CreateBuffer([]opencl.MemFlags{opencl.MemWriteOnly}, 6*6*6*3*3)
 	if err != nil {
 		panic(err)
 	}
 	defer buffer.Release()
 
-	err = kernel.SetArg(0, buffer.Size(), &buffer)
+	//err = kernel.SetArg(0, x.Size(), &x)
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	err = kernel.SetArg(0, wheelsBuffer.Size(), &wheelsBuffer)
 	if err != nil {
 		panic(err)
 	}
 
-	err = commandQueue.EnqueueNDRangeKernel(kernel, 1, []uint64{dataSize})
+	err = kernel.SetArg(1, buffer.Size(), &buffer)
+	if err != nil {
+		panic(err)
+	}
+
+	err = commandQueue.EnqueueNDRangeKernel(kernel, 1, []uint64{6 * 6 * 6})
 	if err != nil {
 		panic(err)
 	}
@@ -148,17 +263,24 @@ func main() {
 	commandQueue.Flush()
 	commandQueue.Finish()
 
-	data := make([]float32, dataSize)
-
-	err = commandQueue.EnqueueReadBuffer(buffer, true, data)
+	//data := func() [][]uint8 {
+	//	matrix := make([][]uint8, 3)
+	//	for i := range matrix {
+	//		matrix[i] = make([]uint8, 3)
+	//	}
+	//	return matrix
+	//}()
+	data := [6 * 6 * 6][3][3]uint8{}
+	err = commandQueue.EnqueueReadBuffer(buffer, true, &data)
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println()
 	printHeader("Output")
-	for _, item := range data {
+	for _, item := range &data {
 		fmt.Printf("%v ", item)
 	}
 	fmt.Println()
+
 }
