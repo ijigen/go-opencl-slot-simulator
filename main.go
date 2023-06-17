@@ -13,36 +13,41 @@ const (
 	//dataSize = 3
 
 	programCode = `
-kernel void kern(global const uchar* wheels,global uchar* out)
-{
-	size_t i=get_global_id(0);
-	uchar wheel0=i;
-	uchar wheel1=wheel0/6;
-	uchar wheel2=wheel1/6;
-
-
-	size_t w=i*3*3;
-	
-	out[w+0] = wheels[(wheel0+0)%6];
-	out[w+1] = wheels[(wheel0+1)%6];
-	out[w+2] = wheels[(wheel0+2)%6];
-
-	out[w+3] = wheels[(wheel1+0)%6];
-	out[w+4] = wheels[(wheel1+1)%6];
-	out[w+5] = wheels[(wheel1+2)%6];
-
-	out[w+6] = wheels[(wheel2+0)%6];
-	out[w+7] = wheels[(wheel2+1)%6];
-	out[w+8] = wheels[(wheel2+2)%6];
-}
-
-//kernel void wheel(global const uchar* wheel,global const uchar screen_length,global uchar* screen)
+//kernel void kern(global const uchar* wheels,global uchar* out)
 //{
-//	size_t spin_index = get_global_id(0);
-//	size_t offset = get_global_id(1);
+//	size_t i=get_global_id(0);
+//	uchar wheel0=i;
+//	uchar wheel1=wheel0/6;
+//	uchar wheel2=wheel1/6;
 //
 //
+//	size_t w=i*3*3;
+//	
+//	out[w+0] = wheels[(wheel0+0)%6];
+//	out[w+1] = wheels[(wheel0+1)%6];
+//	out[w+2] = wheels[(wheel0+2)%6];
+//
+//	out[w+3] = wheels[(wheel1+0)%6];
+//	out[w+4] = wheels[(wheel1+1)%6];
+//	out[w+5] = wheels[(wheel1+2)%6];
+//
+//	out[w+6] = wheels[(wheel2+0)%6];
+//	out[w+7] = wheels[(wheel2+1)%6];
+//	out[w+8] = wheels[(wheel2+2)%6];
 //}
+
+kernel void wheel(
+			const	uint	wheel_length,
+	global	const	uchar*	wheel,
+			const	uchar	wheel_offset,
+			const	uchar	screen_size,
+	global		 	uchar*	screens)
+{
+	size_t spin_index = get_global_id(0);
+	size_t offset = get_global_id(1);
+	
+	screens[spin_index*screen_size+offset]=wheel[(spin_index/wheel_offset+offset)%wheel_length];
+}
 `
 )
 
@@ -60,10 +65,10 @@ var test = "" +
 	"221" +
 	"222"
 
-var wheels = []uint8{
-	1, 2, 3, 4, 5, 6,
-	1, 2, 3, 4, 5, 6,
-	1, 2, 3, 4, 5, 6,
+var wheels = [][]uint8{
+	{1, 2, 3, 4, 5, 6, 6, 5, 5, 6, 6, 8, 1, 6, 7, 1, 4},
+	{1, 2, 3, 4, 5, 6, 7},
+	{1, 2, 3, 4, 5, 6},
 }
 var screenSize = [...]uint8{
 	3,
@@ -217,45 +222,56 @@ func main() {
 		panic(err)
 	}
 
-	kernel, err := program.CreateKernel("kern")
+	var wheel0Length = uint32(len(wheels[0]))
+
+	wheel0Buffer, err := context.CreateBuffer2([]opencl.MemFlags{opencl.MemReadOnly, opencl.MemCopyHostPtr}, uint64(len(wheels[0])), wheels[0])
 	if err != nil {
 		panic(err)
 	}
-	defer kernel.Release()
+	defer wheel0Buffer.Release()
 
-	//xx := make([]uint8, dataSize)
-	//for i := range xx {
-	//	xx[i] = uint8(rand.Uint32() % 256)
-	//}
+	wheel0Offset := uint64(1)
 
-	wheelsBuffer, err := context.CreateBuffer2([]opencl.MemFlags{opencl.MemReadOnly, opencl.MemCopyHostPtr}, 6*3, wheels)
+	screen0Size := screenSize[0]
+
+	var spin_total uint64 = 1
+	for _, innerSlice := range wheels {
+		spin_total *= uint64(len(innerSlice))
+	}
+	screen0Buffer, err := context.CreateBuffer([]opencl.MemFlags{opencl.MemWriteOnly}, spin_total*uint64(screenSize[0]))
 	if err != nil {
 		panic(err)
 	}
-	defer wheelsBuffer.Release()
+	defer screen0Buffer.Release()
 
-	buffer, err := context.CreateBuffer([]opencl.MemFlags{opencl.MemWriteOnly}, 6*6*6*3*3)
+	wheelKernel, err := program.CreateKernel("wheel")
 	if err != nil {
 		panic(err)
 	}
-	defer buffer.Release()
+	defer wheelKernel.Release()
 
-	//err = kernel.SetArg(0, x.Size(), &x)
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	err = kernel.SetArg(0, wheelsBuffer.Size(), &wheelsBuffer)
+	err = wheelKernel.SetArg(0, 4, &wheel0Length)
+	if err != nil {
+		panic(err)
+	}
+	err = wheelKernel.SetArg(1, wheel0Buffer.Size(), &wheel0Buffer)
+	if err != nil {
+		panic(err)
+	}
+	err = wheelKernel.SetArg(2, 8, &wheel0Offset)
+	if err != nil {
+		panic(err)
+	}
+	err = wheelKernel.SetArg(3, 1, &screen0Size)
+	if err != nil {
+		panic(err)
+	}
+	err = wheelKernel.SetArg(4, screen0Buffer.Size(), &screen0Buffer)
 	if err != nil {
 		panic(err)
 	}
 
-	err = kernel.SetArg(1, buffer.Size(), &buffer)
-	if err != nil {
-		panic(err)
-	}
-
-	err = commandQueue.EnqueueNDRangeKernel(kernel, 1, []uint64{6 * 6 * 6})
+	err = commandQueue.EnqueueNDRangeKernel(wheelKernel, 2, []uint64{spin_total, uint64(screenSize[0])})
 	if err != nil {
 		panic(err)
 	}
@@ -263,22 +279,18 @@ func main() {
 	commandQueue.Flush()
 	commandQueue.Finish()
 
-	//data := func() [][]uint8 {
-	//	matrix := make([][]uint8, 3)
-	//	for i := range matrix {
-	//		matrix[i] = make([]uint8, 3)
-	//	}
-	//	return matrix
-	//}()
-	data := [6 * 6 * 6][3][3]uint8{}
-	err = commandQueue.EnqueueReadBuffer(buffer, true, &data)
+	a := spin_total * uint64(screenSize[0])
+	data := make([]uint8, a)
+
+	//data := [6 * 6 * 6][3]uint8{}
+	err = commandQueue.EnqueueReadBuffer(screen0Buffer, true, data)
 	if err != nil {
 		panic(err)
 	}
 
 	fmt.Println()
 	printHeader("Output")
-	for _, item := range &data {
+	for _, item := range data {
 		fmt.Printf("%v ", item)
 	}
 	fmt.Println()

@@ -28,9 +28,15 @@ func createKernel(program Program, kernelName string) (Kernel, error) {
 
 func (k Kernel) SetArg(argIndex uint32, argSize uint64, argValue interface{}) error {
 	var argPtr unsafe.Pointer
-	switch argValue.(type) {
+	switch p := argValue.(type) {
 	case *Buffer:
 		argPtr = unsafe.Pointer(argValue.(*Buffer))
+	case *uint32:
+		argPtr = unsafe.Pointer(p)
+	case *uint64:
+		argPtr = unsafe.Pointer(p)
+	case *uint8:
+		argPtr = unsafe.Pointer(p)
 	default:
 		return errors.New("Unknown type for argValue")
 	}

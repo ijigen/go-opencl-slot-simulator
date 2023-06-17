@@ -56,7 +56,7 @@ func (c CommandQueue) EnqueueReadBuffer(buffer Buffer, blockingRead bool, dataPt
 	case [][]uint8:
 		dataLen = uint64(len(p) * len(p[0]))
 		ptr = unsafe.Pointer(&p[0][0])
-	case *[3][3]uint8:
+	case *[6 * 6 * 6][3]uint8:
 		dataLen = uint64(len(p) * len(p[0]))
 		ptr = unsafe.Pointer(&p[0][0])
 	case *[6 * 6 * 6][3][3]uint8:

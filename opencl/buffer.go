@@ -53,6 +53,12 @@ func createBuffer2(context Context, flags []MemFlags, size uint64, dataPtr inter
 		ptr = unsafe.Pointer(&p[0])
 	case []uint8:
 		ptr = unsafe.Pointer(&p[0])
+	case *int32:
+		ptr = unsafe.Pointer(p)
+	case *int64:
+		ptr = unsafe.Pointer(p)
+	case *uint8:
+		ptr = unsafe.Pointer(p)
 	}
 
 	var errInt clError
