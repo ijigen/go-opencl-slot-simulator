@@ -8,34 +8,8 @@ import (
 )
 
 const (
-	deviceType = opencl.DeviceTypeAll
-
-	//dataSize = 3
-
+	deviceType  = opencl.DeviceTypeAll
 	programCode = `
-//kernel void kern(global const uchar* wheels,global uchar* out)
-//{
-//	size_t i=get_global_id(0);
-//	uchar wheel0=i;
-//	uchar wheel1=wheel0/6;
-//	uchar wheel2=wheel1/6;
-//
-//
-//	size_t w=i*3*3;
-//	
-//	out[w+0] = wheels[(wheel0+0)%6];
-//	out[w+1] = wheels[(wheel0+1)%6];
-//	out[w+2] = wheels[(wheel0+2)%6];
-//
-//	out[w+3] = wheels[(wheel1+0)%6];
-//	out[w+4] = wheels[(wheel1+1)%6];
-//	out[w+5] = wheels[(wheel1+2)%6];
-//
-//	out[w+6] = wheels[(wheel2+0)%6];
-//	out[w+7] = wheels[(wheel2+1)%6];
-//	out[w+8] = wheels[(wheel2+2)%6];
-//}
-
 kernel void wheel(
 			const	uint	wheel_length,
 	global	const	uchar*	wheel,
@@ -51,26 +25,12 @@ kernel void wheel(
 `
 )
 
-var test = "" +
-	"12" +
-	"12" +
-	"12" +
-	"" +
-	"111" +
-	"112" +
-	"121" +
-	"122" +
-	"211" +
-	"212" +
-	"221" +
-	"222"
-
 var wheels = [][]uint8{
-	{1, 2, 3, 4, 5, 6, 6, 5, 5, 6, 6, 8, 1, 6, 7, 1, 4},
-	{1, 2, 3, 4, 5, 6, 7},
+	{1, 2, 3, 4, 5, 6},
+	{1, 2, 3, 4, 5, 6},
 	{1, 2, 3, 4, 5, 6},
 }
-var screenSize = [...]uint8{
+var screensSize = [...]uint8{
 	3,
 	3,
 	3,
@@ -111,15 +71,6 @@ var lines = func() [][][]bool {
 	}
 	return result
 }()
-
-//	var total = func() uint64 {
-//		i := 0
-//		for _, wheel := range wheels {
-//			i += len(wheel)
-//		}
-//		return uint64(i)
-//	}()
-var screen = make([][][][][][]uint8, 6*6*6)
 
 func printHeader(name string) {
 	fmt.Println(strings.ToUpper(name))
@@ -222,75 +173,88 @@ func main() {
 		panic(err)
 	}
 
-	var wheel0Length = uint32(len(wheels[0]))
-
-	wheel0Buffer, err := context.CreateBuffer2([]opencl.MemFlags{opencl.MemReadOnly, opencl.MemCopyHostPtr}, uint64(len(wheels[0])), wheels[0])
-	if err != nil {
-		panic(err)
-	}
-	defer wheel0Buffer.Release()
-
-	wheel0Offset := uint64(1)
-
-	screen0Size := screenSize[0]
-
 	var spin_total uint64 = 1
 	for _, innerSlice := range wheels {
 		spin_total *= uint64(len(innerSlice))
 	}
-	screen0Buffer, err := context.CreateBuffer([]opencl.MemFlags{opencl.MemWriteOnly}, spin_total*uint64(screenSize[0]))
-	if err != nil {
-		panic(err)
-	}
-	defer screen0Buffer.Release()
+	screensBuffer := make([]opencl.Buffer, len(wheels))
 
-	wheelKernel, err := program.CreateKernel("wheel")
-	if err != nil {
-		panic(err)
-	}
-	defer wheelKernel.Release()
+	var wheelsOffset uint64 = 1
 
-	err = wheelKernel.SetArg(0, 4, &wheel0Length)
-	if err != nil {
-		panic(err)
-	}
-	err = wheelKernel.SetArg(1, wheel0Buffer.Size(), &wheel0Buffer)
-	if err != nil {
-		panic(err)
-	}
-	err = wheelKernel.SetArg(2, 8, &wheel0Offset)
-	if err != nil {
-		panic(err)
-	}
-	err = wheelKernel.SetArg(3, 1, &screen0Size)
-	if err != nil {
-		panic(err)
-	}
-	err = wheelKernel.SetArg(4, screen0Buffer.Size(), &screen0Buffer)
-	if err != nil {
-		panic(err)
-	}
+	for i, wheel := range wheels {
 
-	err = commandQueue.EnqueueNDRangeKernel(wheelKernel, 2, []uint64{spin_total, uint64(screenSize[0])})
-	if err != nil {
-		panic(err)
+		var wheelLength = uint32(len(wheel))
+
+		wheelBuffer, err := context.CreateBuffer2([]opencl.MemFlags{opencl.MemReadOnly, opencl.MemCopyHostPtr}, uint64(wheelLength), wheel)
+		if err != nil {
+			panic(err)
+		}
+		defer wheelBuffer.Release()
+
+		wheelOffset := wheelsOffset
+		wheelsOffset *= uint64(wheelLength)
+
+		screenSize := screensSize[i]
+
+		screenBuffer, err := context.CreateBuffer([]opencl.MemFlags{opencl.MemWriteOnly}, spin_total*uint64(screenSize))
+		if err != nil {
+			panic(err)
+		}
+		defer screenBuffer.Release()
+		screensBuffer[i] = screenBuffer
+
+		wheelKernel, err := program.CreateKernel("wheel")
+		if err != nil {
+			panic(err)
+		}
+		defer wheelKernel.Release()
+
+		err = wheelKernel.SetArg(0, 4, &wheelLength)
+		if err != nil {
+			panic(err)
+		}
+		err = wheelKernel.SetArg(1, wheelBuffer.Size(), &wheelBuffer)
+		if err != nil {
+			panic(err)
+		}
+
+		err = wheelKernel.SetArg(2, 8, &wheelOffset)
+		if err != nil {
+			panic(err)
+		}
+		err = wheelKernel.SetArg(3, 1, &screenSize)
+		if err != nil {
+			panic(err)
+		}
+
+		err = wheelKernel.SetArg(4, screenBuffer.Size(), &screenBuffer)
+		if err != nil {
+			panic(err)
+		}
+
+		err = commandQueue.EnqueueNDRangeKernel(wheelKernel, 2, []uint64{spin_total, uint64(screenSize)})
+		if err != nil {
+			panic(err)
+		}
+
 	}
 
 	commandQueue.Flush()
 	commandQueue.Finish()
 
-	a := spin_total * uint64(screenSize[0])
-	data := make([]uint8, a)
+	datas := make([][]uint8, len(wheels))
 
-	//data := [6 * 6 * 6][3]uint8{}
-	err = commandQueue.EnqueueReadBuffer(screen0Buffer, true, data)
-	if err != nil {
-		panic(err)
+	for i, _ := range datas {
+		datas[i] = make([]uint8, spin_total*uint64(screensSize[i]))
+		err = commandQueue.EnqueueReadBuffer(screensBuffer[i], true, datas[i])
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	fmt.Println()
 	printHeader("Output")
-	for _, item := range data {
+	for _, item := range datas {
 		fmt.Printf("%v ", item)
 	}
 	fmt.Println()
