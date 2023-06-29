@@ -49,13 +49,19 @@ func createBuffer2(context Context, flags []MemFlags, size uint64, dataPtr inter
 
 	var ptr unsafe.Pointer
 	switch p := dataPtr.(type) {
-	case []float32:
+	case []uint64:
+		ptr = unsafe.Pointer(&p[0])
+	case []uint32:
+		ptr = unsafe.Pointer(&p[0])
+	case []uint16:
 		ptr = unsafe.Pointer(&p[0])
 	case []uint8:
 		ptr = unsafe.Pointer(&p[0])
-	case *int32:
+	case *uint64:
 		ptr = unsafe.Pointer(p)
-	case *int64:
+	case *uint32:
+		ptr = unsafe.Pointer(p)
+	case *uint16:
 		ptr = unsafe.Pointer(p)
 	case *uint8:
 		ptr = unsafe.Pointer(p)

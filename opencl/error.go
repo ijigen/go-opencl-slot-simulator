@@ -21,7 +21,7 @@ const (
 
 var (
 	DeviceNotFound      = errors.New("Device not found")
-	InvalidValue        = errors.New("Invalid value")
+	InvalidValue        = errors.New("Invalid TValue")
 	InvalidPlatform     = errors.New("Invalid platform")
 	BuildProgramFailure = errors.New("Build program failure")
 	OutOfResources      = errors.New("Out of resources")

@@ -26,13 +26,17 @@ type DeviceInfo uint32
 
 // DeviceInfo constants.
 const (
-	DeviceAddressBits       DeviceInfo = DeviceInfo(C.CL_DEVICE_ADDRESS_BITS)
-	DeviceAvailable                    = DeviceInfo(C.CL_DEVICE_AVAILABLE)
-	DeviceBuiltInKernels               = DeviceInfo(C.CL_DEVICE_BUILT_IN_KERNELS)
-	DeviceCompilerAvailable            = DeviceInfo(C.CL_DEVICE_COMPILER_AVAILABLE)
-	DeviceInfoType                     = DeviceInfo(C.CL_DEVICE_TYPE)
-	DeviceVendor                       = DeviceInfo(C.CL_DEVICE_VENDOR)
-	DriverVersion                      = DeviceInfo(C.CL_DRIVER_VERSION)
+	DeviceAddressBits           DeviceInfo = DeviceInfo(C.CL_DEVICE_ADDRESS_BITS)
+	DeviceAvailable                        = DeviceInfo(C.CL_DEVICE_AVAILABLE)
+	DeviceBuiltInKernels                   = DeviceInfo(C.CL_DEVICE_BUILT_IN_KERNELS)
+	DeviceCompilerAvailable                = DeviceInfo(C.CL_DEVICE_COMPILER_AVAILABLE)
+	DeviceInfoType                         = DeviceInfo(C.CL_DEVICE_TYPE)
+	DeviceVendor                           = DeviceInfo(C.CL_DEVICE_VENDOR)
+	DriverVersion                          = DeviceInfo(C.CL_DRIVER_VERSION)
+	DriverMaxMemAllocSize                  = DeviceInfo(C.CL_DEVICE_MAX_MEM_ALLOC_SIZE)
+	DriverMaxWorkGroupSize                 = DeviceInfo(C.CL_DEVICE_MAX_WORK_GROUP_SIZE)
+	DriverMaxWorkItemSizes                 = DeviceInfo(C.CL_DEVICE_MAX_WORK_ITEM_SIZES)
+	DriverMaxWorkItemDimensions            = DeviceInfo(C.CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS)
 )
 
 var (
@@ -44,6 +48,9 @@ var (
 		DeviceInfoType:          {DeviceTypeDefault},
 		DeviceVendor:            {""},
 		DriverVersion:           {"", MajorMinor{}},
+		DriverMaxMemAllocSize:   {uint64(0)},
+		DriverMaxWorkGroupSize:  {uint64(0)},
+		DriverMaxWorkItemSizes:  {[3]uint64{}},
 	}
 )
 
@@ -150,7 +157,7 @@ func (d Device) GetInfo(name DeviceInfo, output interface{}) error {
 			*t = elems
 		}
 
-	case *uint32, *bool, *DeviceType:
+	case *uint32, *uint64, *[]uint64, *[3]uint64, *bool, *DeviceType:
 		return d.getInfoNum(name, output)
 
 	case *MajorMinor:
@@ -165,6 +172,7 @@ func (d Device) GetInfo(name DeviceInfo, output interface{}) error {
 
 			*t = ver
 		}
+
 	}
 
 	return nil
@@ -175,6 +183,37 @@ func (d Device) GetInfo(name DeviceInfo, output interface{}) error {
 func (d Device) getInfoNum(name DeviceInfo, output interface{}) error {
 	var errInt clError
 	switch t := output.(type) {
+	case *[]uint64:
+		var u []uint64
+		errInt = clError(C.clGetDeviceInfo(
+			d.deviceID,
+			C.cl_device_info(name),
+			3*8,
+			unsafe.Pointer(&u),
+			nil,
+		))
+		*t = u
+	case *[3]uint64:
+		var u [3]uint64
+		errInt = clError(C.clGetDeviceInfo(
+			d.deviceID,
+			C.cl_device_info(name),
+			3*8,
+			unsafe.Pointer(&u),
+			nil,
+		))
+		*t = u
+	case *uint64:
+		var u uint64
+		errInt = clError(C.clGetDeviceInfo(
+			d.deviceID,
+			C.cl_device_info(name),
+			8,
+			unsafe.Pointer(&u),
+			nil,
+		))
+		*t = u
+
 	case *uint32:
 		var u uint32
 		errInt = clError(C.clGetDeviceInfo(
@@ -207,7 +246,6 @@ func (d Device) getInfoNum(name DeviceInfo, output interface{}) error {
 			nil,
 		))
 		*t = DeviceType(u)
-
 	}
 
 	if errInt != clSuccess {
