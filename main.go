@@ -345,24 +345,7 @@ func main() {
 	}
 	defer outputBuffer.Release()
 
-	err = sum.SetArg(0, inputBuffer.Size(), &inputBuffer)
-	if err != nil {
-		panic(err)
-	}
-
-	//err = opencl.Slice(input).Set(sum, 0)
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	err = sum.SetArg(1, outputBuffer.Size(), &outputBuffer)
-	if err != nil {
-		panic(err)
-	}
-
-	//err = sum.Set(opencl.Value(length))
-
-	err = opencl.Value(length).Set(sum, 2)
+	err = sum.SetArgs(&inputBuffer, &outputBuffer, opencl.Value(length))
 	if err != nil {
 		panic(err)
 	}

@@ -3,7 +3,6 @@ package opencl
 // #include "opencl.h"
 import "C"
 import (
-	"errors"
 	"fmt"
 	"unsafe"
 )
@@ -33,9 +32,9 @@ func createKernel(program Program, kernelName string) (Kernel, error) {
 //
 //}
 
-func (k Kernel) Set(setters ...Setter) error {
-	for i, setter := range setters {
-		err := setter.Set(k, uint(i))
+func (k Kernel) SetArgs(args ...Arg) error {
+	for i, arg := range args {
+		err := k.SetArg(arg, i)
 		if err != nil {
 			panic(err)
 		}
@@ -43,31 +42,45 @@ func (k Kernel) Set(setters ...Setter) error {
 	return nil
 }
 
-func (k Kernel) SetArg(argIndex uint32, argSize uint64, argValue interface{}) error {
-	//var argPtr unsafe.Pointer
-	var argPtr unsafe.Pointer
-
-	switch p := argValue.(type) {
-	case *Buffer:
-		argPtr = unsafe.Pointer(p)
-	case *uint32:
-		argPtr = unsafe.Pointer(p)
-	case *uint64:
-		argPtr = unsafe.Pointer(p)
-	case *uint8:
-		argPtr = unsafe.Pointer(p)
-	default:
-		return errors.New("Unknown type for argValue")
-	}
-
+func (k Kernel) SetArg(arg Arg, i int) error {
 	errInt := clError(C.clSetKernelArg(
 		k.kernel,
-		C.cl_uint(argIndex),
-		C.size_t(argSize),
-		argPtr,
+		C.cl_uint(uint(i)),
+		arg.Size(),
+		arg.Pointer(),
 	))
-	return clErrorToError(errInt)
+	err := clErrorToError(errInt)
+	if err != nil {
+		panic(err)
+	}
+	return nil
 }
+
+//func (k Kernel) SetArg(argIndex uint32, argSize uint64, argValue interface{}) error {
+//	//var argPtr unsafe.Pointer
+//	var argPtr unsafe.Pointer
+//
+//	switch p := argValue.(type) {
+//	case *Buffer:
+//		argPtr = unsafe.Pointer(p)
+//	case *uint32:
+//		argPtr = unsafe.Pointer(p)
+//	case *uint64:
+//		argPtr = unsafe.Pointer(p)
+//	case *uint8:
+//		argPtr = unsafe.Pointer(p)
+//	default:
+//		return errors.New("Unknown type for argValue")
+//	}
+//
+//	errInt := clError(C.clSetKernelArg(
+//		k.kernel,
+//		C.cl_uint(argIndex),
+//		C.size_t(argSize),
+//		argPtr,
+//	))
+//	return clErrorToError(errInt)
+//}
 
 func (k Kernel) Release() {
 	C.clReleaseKernel(k.kernel)

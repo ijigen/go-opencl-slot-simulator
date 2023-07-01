@@ -82,10 +82,18 @@ func createBuffer2(context Context, flags []MemFlags, size uint64, dataPtr inter
 	return Buffer{buffer}, nil
 }
 
-func (b Buffer) Size() uint64 {
+func (b Buffer) SSize() uint64 {
 	return uint64(C.sizeof_cl_mem)
 }
 
-func (b Buffer) Release() {
+func (b *Buffer) Release() {
 	C.clReleaseMemObject(b.buffer)
+}
+
+func (b *Buffer) Size() C.size_t {
+	return C.size_t(b.SSize())
+}
+
+func (b *Buffer) Pointer() unsafe.Pointer {
+	return unsafe.Pointer(b)
 }
