@@ -34,6 +34,7 @@ const (
 	DeviceVendor                           = DeviceInfo(C.CL_DEVICE_VENDOR)
 	DriverVersion                          = DeviceInfo(C.CL_DRIVER_VERSION)
 	DriverMaxMemAllocSize                  = DeviceInfo(C.CL_DEVICE_MAX_MEM_ALLOC_SIZE)
+	DriverGlobalMemSize                    = DeviceInfo(C.CL_DEVICE_GLOBAL_MEM_SIZE)
 	DriverMaxWorkGroupSize                 = DeviceInfo(C.CL_DEVICE_MAX_WORK_GROUP_SIZE)
 	DriverMaxWorkItemSizes                 = DeviceInfo(C.CL_DEVICE_MAX_WORK_ITEM_SIZES)
 	DriverMaxWorkItemDimensions            = DeviceInfo(C.CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS)
@@ -41,16 +42,18 @@ const (
 
 var (
 	deviceInfoTypes = map[DeviceInfo][]interface{}{
-		DeviceAddressBits:       {uint32(0)},
-		DeviceAvailable:         {false},
-		DeviceBuiltInKernels:    {"", []string{}},
-		DeviceCompilerAvailable: {false},
-		DeviceInfoType:          {DeviceTypeDefault},
-		DeviceVendor:            {""},
-		DriverVersion:           {"", MajorMinor{}},
-		DriverMaxMemAllocSize:   {uint64(0)},
-		DriverMaxWorkGroupSize:  {uint64(0)},
-		DriverMaxWorkItemSizes:  {[3]uint64{}},
+		DeviceAddressBits:           {uint32(0)},
+		DeviceAvailable:             {false},
+		DeviceBuiltInKernels:        {"", []string{}},
+		DeviceCompilerAvailable:     {false},
+		DeviceInfoType:              {DeviceTypeDefault},
+		DeviceVendor:                {""},
+		DriverVersion:               {"", MajorMinor{}},
+		DriverMaxMemAllocSize:       {uint64(0)},
+		DriverGlobalMemSize:         {uint64(0)},
+		DriverMaxWorkGroupSize:      {uint64(0)},
+		DriverMaxWorkItemSizes:      {[3]uint64{}},
+		DriverMaxWorkItemDimensions: {uint64(0)},
 	}
 )
 

@@ -189,6 +189,12 @@ func printInfo(platform opencl.Platform, device opencl.Device) {
 		panic(err)
 	}
 
+	var memSize uint64
+	err = device.GetInfo(opencl.DriverGlobalMemSize, &memSize)
+	if err != nil {
+		panic(err)
+	}
+
 	var groupMax uint64
 	err = device.GetInfo(opencl.DriverMaxWorkGroupSize, &groupMax)
 	if err != nil {
@@ -197,6 +203,12 @@ func printInfo(platform opencl.Platform, device opencl.Device) {
 
 	itemMax := [3]uint64{}
 	err = device.GetInfo(opencl.DriverMaxWorkItemSizes, &itemMax)
+	if err != nil {
+		panic(err)
+	}
+
+	var dimensMax uint64
+	err = device.GetInfo(opencl.DriverMaxWorkItemDimensions, &dimensMax)
 	if err != nil {
 		panic(err)
 	}
